@@ -2,11 +2,14 @@ import { Router } from "express";
 import { env } from "../config/env.js";
 import { Expense } from "../models/Expense.js";
 import { LinkedAccount } from "../models/LinkedAccount.js";
-import { stripe } from "../services/stripe.js";
+import { getStripeClient } from "../services/stripe.js";
 
 const webhooksRouter = Router();
 
 webhooksRouter.post("/stripe", async (req, res) => {
+  if (!env.hasStripe) {
+    return res.status(503).json({ message: "Stripe webhooks are disabled in this environment." });
+  }
   if (!env.STRIPE_WEBHOOK_SECRET) {
     return res.status(400).json({ message: "STRIPE_WEBHOOK_SECRET is not configured." });
   }
@@ -16,6 +19,7 @@ webhooksRouter.post("/stripe", async (req, res) => {
     return res.status(400).json({ message: "Missing stripe-signature header." });
   }
 
+  const stripe = getStripeClient();
   const event = stripe.webhooks.constructEvent(
     req.body,
     signature,

@@ -9,7 +9,9 @@ import { accountsRouter } from "./routes/accounts.js";
 import { expensesRouter } from "./routes/expenses.js";
 import { healthRouter } from "./routes/health.js";
 import { insightsRouter } from "./routes/insights.js";
+import { bankRouter } from "./routes/bank.js";
 import { subscriptionsRouter } from "./routes/subscriptions.js";
+import { transactionsRouter } from "./routes/transactions.js";
 import { webhooksRouter } from "./routes/webhooks.js";
 
 export function createApp() {
@@ -43,11 +45,17 @@ export function createApp() {
   app.use(express.json());
 
   app.use("/api", healthRouter);
-  app.use("/api/accounts", accountsRouter);
+  if (env.hasStripe) {
+    app.use("/api/accounts", accountsRouter);
+  }
+  app.use("/api/bank", bankRouter);
+  app.use("/api/transactions", transactionsRouter);
   app.use("/api/expenses", expensesRouter);
   app.use("/api/subscriptions", subscriptionsRouter);
   app.use("/api/insights", insightsRouter);
-  app.use("/api/webhooks", webhooksRouter);
+  if (env.hasStripe) {
+    app.use("/api/webhooks", webhooksRouter);
+  }
 
   app.use(notFound);
   app.use(errorHandler);

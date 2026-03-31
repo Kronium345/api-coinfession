@@ -1,0 +1,24 @@
+import mongoose from "mongoose";
+
+const connectedBankAccountSchema = new mongoose.Schema(
+  {
+    clerkUserId: { type: String, required: true, index: true },
+    provider: { type: String, enum: ["plaid", "truelayer"], required: true },
+    itemId: { type: String, required: true },
+    accessToken: { type: String, required: true }, // Store encrypted in production.
+    institutionId: { type: String, default: null },
+    institutionName: { type: String, default: null },
+    plaidAccountIds: [{ type: String }],
+    status: { type: String, enum: ["active", "inactive"], default: "active" },
+    lastSyncAt: { type: Date, default: null },
+  },
+  { timestamps: true }
+);
+
+connectedBankAccountSchema.index({ clerkUserId: 1, provider: 1, itemId: 1 }, { unique: true });
+
+export const ConnectedBankAccount = mongoose.model(
+  "ConnectedBankAccount",
+  connectedBankAccountSchema
+);
+

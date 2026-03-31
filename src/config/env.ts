@@ -8,8 +8,12 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(4000),
   MONGODB_URI: z.string().min(1, "MONGODB_URI is required"),
   CLERK_SECRET_KEY: z.string().min(1, "CLERK_SECRET_KEY is required"),
-  STRIPE_SECRET_KEY: z.string().min(1, "STRIPE_SECRET_KEY is required"),
+  STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  PLAID_CLIENT_ID: z.string().min(1, "PLAID_CLIENT_ID is required"),
+  PLAID_SECRET: z.string().min(1, "PLAID_SECRET is required"),
+  PLAID_ENV: z.enum(["sandbox", "development", "production"]).default("sandbox"),
+  PLAID_REDIRECT_URI: z.string().url().optional(),
   CORS_ORIGINS: z.string().default("*"),
 });
 
@@ -22,6 +26,7 @@ if (!parsed.success) {
 
 export const env = {
   ...parsed.data,
+  hasStripe: Boolean(parsed.data.STRIPE_SECRET_KEY),
   corsOrigins:
     parsed.data.CORS_ORIGINS === "*"
       ? ["*"]

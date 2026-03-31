@@ -1,8 +1,9 @@
 import { Router } from "express";
 import { z } from "zod";
+import { env } from "../config/env.js";
 import { ensureClerkUser, requireAuth } from "../middleware/auth.js";
 import { LinkedAccount } from "../models/LinkedAccount.js";
-import { getOrCreateStripeCustomer, stripe } from "../services/stripe.js";
+import { getOrCreateStripeCustomer, getStripeClient } from "../services/stripe.js";
 
 const accountsRouter = Router();
 
@@ -16,6 +17,12 @@ const attachSchema = z.object({
 });
 
 accountsRouter.use(requireAuth);
+accountsRouter.use((_req, res, next) => {
+  if (!env.hasStripe) {
+    return res.status(503).json({ message: "Stripe routes are disabled in this environment." });
+  }
+  return next();
+});
 
 accountsRouter.post("/link-session", async (req, res) => {
   const clerkUserId = req.auth!.clerkUserId;
@@ -39,6 +46,7 @@ accountsRouter.post("/attach", async (req, res) => {
   const customer = await getOrCreateStripeCustomer(clerkUserId);
 
   if (parsed.data.paymentMethodId) {
+    const stripe = getStripeClient();
     await stripe.paymentMethods.attach(parsed.data.paymentMethodId, {
       customer: customer.id,
     });

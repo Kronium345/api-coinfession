@@ -1,8 +1,9 @@
-import { clerkClient, verifyToken } from "@clerk/backend";
+import { createClerkClient, verifyToken } from "@clerk/backend";
 import type { NextFunction, Request, Response } from "express";
 import { env } from "../config/env.js";
 
 const BEARER_PREFIX = "Bearer ";
+const clerkClient = createClerkClient({ secretKey: env.CLERK_SECRET_KEY });
 
 export async function requireAuth(req: Request, res: Response, next: NextFunction) {
   try {
