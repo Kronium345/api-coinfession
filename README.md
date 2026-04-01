@@ -111,6 +111,25 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 
 Important: `PLAID_ACCESS_TOKEN_KEY` is app-owned encryption material, not provided by Plaid.
 
+## Deploying to Render
+
+`npm start` runs `tsx src/index.ts` from the directory that contains **`package.json`**.
+
+- **Do not** set Render **Root Directory** to `src`. That makes the shell cwd `.../src`, so `tsx src/index.ts` resolves to `.../src/src/index.ts` and fails with `ERR_MODULE_NOT_FOUND` for `app.js`.
+
+**Monorepo** (repo has `coinfession/` and `api-coinfession/`):
+
+- Root Directory: `api-coinfession`
+- Build Command: `npm install` (default)
+- Start Command: `npm start`
+
+**API-only repo** (this project is the repository root):
+
+- Root Directory: leave **empty**
+- Start Command: `npm start`
+
+Set `PORT` from Render (often `10000`); the app reads `process.env.PORT` via validated env (default `4000` if unset — ensure Render’s port matches what you expose, or add `PORT` to Render env to match their expectation).
+
 ## Run Locally
 
 ```bash
