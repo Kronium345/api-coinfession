@@ -8,6 +8,7 @@ import {
   categorizeScore,
   scoreOpportunity,
 } from "../services/insightsEngine.js";
+import { buildInsightDashboardPayload } from "../services/insightDashboard.js";
 
 const insightsRouter = Router();
 
@@ -54,7 +55,7 @@ async function recomputeInsights(clerkUserId: string) {
       },
     },
     { upsert: true, new: true }
-  );
+  ).lean();
 
   return { features, snapshot };
 }
@@ -64,19 +65,28 @@ insightsRouter.get("/summary", async (req, res) => {
   const latest = await InsightSnapshot.findOne({ clerkUserId }).sort({ windowEnd: -1 }).lean();
 
   if (latest) {
-    return res.json(latest);
+    const payload = await buildInsightDashboardPayload(latest, clerkUserId);
+    return res.json(payload);
   }
 
   const result = await recomputeInsights(clerkUserId);
-  return res.json(result.snapshot);
+  if (!result.snapshot) {
+    return res.status(500).json({ message: "Could not build insights snapshot." });
+  }
+  const payload = await buildInsightDashboardPayload(result.snapshot, clerkUserId);
+  return res.json(payload);
 });
 
 insightsRouter.post("/recompute", async (req, res) => {
   const clerkUserId = req.auth!.clerkUserId;
   const result = await recomputeInsights(clerkUserId);
+  if (!result.snapshot) {
+    return res.status(500).json({ message: "Could not build insights snapshot." });
+  }
+  const payload = await buildInsightDashboardPayload(result.snapshot, clerkUserId);
   return res.json({
     message: "Recomputed insights with RulesEngineV1.",
-    snapshot: result.snapshot,
+    snapshot: payload,
     features: result.features,
   });
 });

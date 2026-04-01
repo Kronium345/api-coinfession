@@ -5,7 +5,7 @@ const connectedBankAccountSchema = new mongoose.Schema(
     clerkUserId: { type: String, required: true, index: true },
     provider: { type: String, enum: ["plaid", "truelayer"], required: true },
     itemId: { type: String, required: true },
-    accessToken: { type: String, required: true }, // Store encrypted in production.
+    accessToken: { type: String, required: true },
     institutionId: { type: String, default: null },
     institutionName: { type: String, default: null },
     plaidAccountIds: [{ type: String }],

@@ -3,6 +3,7 @@ import { CountryCode, Products } from "plaid";
 import { ConnectedBankAccount } from "../../models/ConnectedBankAccount.js";
 import { Expense } from "../../models/Expense.js";
 import { buildLinkTokenConfig, plaidClient } from "../plaid.js";
+import { decryptPlaidAccessToken, encryptPlaidAccessToken } from "../tokenCrypto.js";
 
 const SYNC_PAGE_SIZE = 500;
 
@@ -38,6 +39,7 @@ export async function exchangePublicToken(params: {
   });
   const accessToken = exchange.data.access_token;
   const itemId = exchange.data.item_id;
+  const encryptedToken = encryptPlaidAccessToken(accessToken);
 
   const item = await plaidClient.itemGet({ access_token: accessToken });
   const institutionId = item.data.item.institution_id;
@@ -59,7 +61,7 @@ export async function exchangePublicToken(params: {
         clerkUserId: params.clerkUserId,
         provider: "plaid",
         itemId,
-        accessToken,
+        accessToken: encryptedToken,
         institutionId: institutionId ?? params.metadata?.institution?.institution_id ?? null,
         institutionName,
         plaidAccountIds: params.metadata?.accounts?.map((a) => a.id) ?? [],
@@ -118,6 +120,15 @@ export async function syncTransactionsForLinkedAccount(
     }
   | { ok: false; error: string }
 > {
+  let accessToken: string;
+  try {
+    accessToken = decryptPlaidAccessToken(linked.accessToken);
+  } catch (err) {
+    linked.lastSyncError = err instanceof Error ? err.message : "Could not decrypt access token";
+    await linked.save();
+    return { ok: false, error: linked.lastSyncError };
+  }
+
   let cursor: string | undefined =
     linked.transactionsCursor && linked.transactionsCursor.length > 0
       ? linked.transactionsCursor
@@ -133,7 +144,7 @@ export async function syncTransactionsForLinkedAccount(
     while (true) {
       pages += 1;
       const response = await plaidClient.transactionsSync({
-        access_token: linked.accessToken,
+        access_token: accessToken,
         cursor,
         count: SYNC_PAGE_SIZE,
       });

@@ -1,6 +1,7 @@
 import { createApp } from "./app.js";
 import { env } from "./config/env.js";
 import { connectMongo } from "./db/mongo.js";
+import { startPlaidDailySyncJob } from "./jobs/plaidDailySync.js";
 import { ensureInsightCategories } from "./services/insightCategories.js";
 
 async function bootstrap() {
@@ -9,6 +10,7 @@ async function bootstrap() {
   const app = createApp();
   app.listen(env.PORT, () => {
     console.log(`API listening on port ${env.PORT}`);
+    startPlaidDailySyncJob();
   });
 }
 

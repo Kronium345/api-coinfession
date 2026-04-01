@@ -14,6 +14,8 @@ const envSchema = z.object({
   PLAID_SECRET: z.string().min(1, "PLAID_SECRET is required"),
   PLAID_ENV: z.enum(["sandbox", "development", "production"]).default("sandbox"),
   PLAID_REDIRECT_URI: z.string().url().optional(),
+  /** Base64-encoded 32-byte key for AES-256-GCM encryption of Plaid access tokens at rest. Optional in dev. */
+  PLAID_ACCESS_TOKEN_KEY: z.string().optional(),
   CORS_ORIGINS: z.string().default("*"),
 });
 

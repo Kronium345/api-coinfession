@@ -10,6 +10,7 @@ import { expensesRouter } from "./routes/expenses.js";
 import { healthRouter } from "./routes/health.js";
 import { insightsRouter } from "./routes/insights.js";
 import { bankRouter } from "./routes/bank.js";
+import { budgetsRouter } from "./routes/budgets.js";
 import { subscriptionsRouter } from "./routes/subscriptions.js";
 import { transactionsRouter } from "./routes/transactions.js";
 import { webhooksRouter } from "./routes/webhooks.js";
@@ -57,6 +58,7 @@ export function createApp() {
   app.use("/api/expenses", expensesRouter);
   app.use("/api/subscriptions", subscriptionsRouter);
   app.use("/api/insights", insightsRouter);
+  app.use("/api/budgets", budgetsRouter);
   if (env.hasStripe) {
     app.use("/api/webhooks", webhooksRouter);
   }
