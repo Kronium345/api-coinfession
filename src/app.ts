@@ -63,6 +63,14 @@ export function createApp() {
     app.use("/api/webhooks", webhooksRouter);
   }
 
+  app.get("/", (_req, res) => {
+    res.json({
+      ok: true,
+      message: "Coinfession API",
+      health: "/api/health",
+    });
+  });
+
   app.use(notFound);
   app.use(errorHandler);
   return app;
