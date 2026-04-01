@@ -9,8 +9,14 @@ const connectedBankAccountSchema = new mongoose.Schema(
     institutionId: { type: String, default: null },
     institutionName: { type: String, default: null },
     plaidAccountIds: [{ type: String }],
-    status: { type: String, enum: ["active", "inactive"], default: "active" },
+    transactionsCursor: { type: String, default: null },
+    status: {
+      type: String,
+      enum: ["active", "inactive", "reauth_required", "disconnected"],
+      default: "active",
+    },
     lastSyncAt: { type: Date, default: null },
+    lastSyncError: { type: String, default: null },
   },
   { timestamps: true }
 );

@@ -15,12 +15,24 @@ const expenseSchema = new mongoose.Schema(
     },
     sourceRef: { type: String, default: null },
     notes: { type: String, default: null },
+    pending: { type: Boolean, default: false },
+    plaidCategoryLabels: [{ type: String }],
     metadata: { type: mongoose.Schema.Types.Mixed, default: null },
   },
   { timestamps: true }
 );
 
 expenseSchema.index({ clerkUserId: 1, occurredAt: -1 });
+expenseSchema.index(
+  { clerkUserId: 1, sourceType: 1, sourceRef: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      sourceType: "bank_sync",
+      sourceRef: { $type: "string" },
+    },
+  }
+);
 
 export const Expense = mongoose.model("Expense", expenseSchema);
 

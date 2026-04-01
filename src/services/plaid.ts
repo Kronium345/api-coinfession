@@ -31,6 +31,7 @@ export function buildLinkTokenConfig(params: {
     language: "en",
     products: [Products.Transactions],
     country_codes: params.countryCodes ?? [CountryCode.Us],
+    transactions: { days_requested: 90 },
     redirect_uri: env.PLAID_REDIRECT_URI,
     android_package_name: params.androidPackageName,
   };

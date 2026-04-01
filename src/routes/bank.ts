@@ -1,11 +1,14 @@
-import { endOfDay, startOfDay, subDays } from "date-fns";
 import { Router } from "express";
-import { CountryCode, Products } from "plaid";
+import { CountryCode } from "plaid";
 import { z } from "zod";
 import { requireAuth } from "../middleware/auth.js";
 import { ConnectedBankAccount } from "../models/ConnectedBankAccount.js";
-import { Expense } from "../models/Expense.js";
-import { buildLinkTokenConfig, plaidClient } from "../services/plaid.js";
+import {
+  createLinkTokenForUser,
+  exchangePublicToken,
+  plaidProductsForDocs,
+  syncAllPlaidItemsForUser,
+} from "../services/providers/plaidProvider.js";
 
 const bankRouter = Router();
 bankRouter.use(requireAuth);
@@ -40,19 +43,17 @@ bankRouter.post("/link-token", async (req, res) => {
   const countryCode =
     parsed.data.countryCode === "GB" ? CountryCode.Gb : CountryCode.Us;
 
-  const response = await plaidClient.linkTokenCreate(
-    buildLinkTokenConfig({
-      clerkUserId,
-      countryCodes: [countryCode],
-      androidPackageName: parsed.data.androidPackageName,
-    })
-  );
+  const token = await createLinkTokenForUser({
+    clerkUserId,
+    countryCode,
+    androidPackageName: parsed.data.androidPackageName,
+  });
 
   return res.json({
     provider: "plaid",
-    linkToken: response.data.link_token,
-    expiration: response.data.expiration,
-    requestId: response.data.request_id,
+    linkToken: token.linkToken,
+    expiration: token.expiration,
+    requestId: token.requestId,
   });
 });
 
@@ -63,141 +64,49 @@ bankRouter.post("/exchange-token", async (req, res) => {
     return res.status(400).json({ message: "Invalid payload.", issues: parsed.error.flatten() });
   }
 
-  const exchange = await plaidClient.itemPublicTokenExchange({
-    public_token: parsed.data.publicToken,
+  const { itemId, connected } = await exchangePublicToken({
+    clerkUserId,
+    publicToken: parsed.data.publicToken,
+    metadata: parsed.data.metadata,
   });
-  const accessToken = exchange.data.access_token;
-  const itemId = exchange.data.item_id;
-
-  const item = await plaidClient.itemGet({ access_token: accessToken });
-  const institutionId = item.data.item.institution_id;
-
-  let institutionName: string | null = parsed.data.metadata?.institution?.name ?? null;
-  if (institutionId) {
-    const institutions = await plaidClient.institutionsGetById({
-      institution_id: institutionId,
-      country_codes: [CountryCode.Us, CountryCode.Gb],
-      options: { include_optional_metadata: false },
-    });
-    institutionName = institutions.data.institution.name;
-  }
-
-  const connected = await ConnectedBankAccount.findOneAndUpdate(
-    { clerkUserId, provider: "plaid", itemId },
-    {
-      $set: {
-        clerkUserId,
-        provider: "plaid",
-        itemId,
-        accessToken,
-        institutionId: institutionId ?? parsed.data.metadata?.institution?.institution_id ?? null,
-        institutionName,
-        plaidAccountIds: parsed.data.metadata?.accounts?.map((a) => a.id) ?? [],
-        status: "active",
-      },
-    },
-    { upsert: true, new: true }
-  );
 
   return res.status(201).json({
     message: "Plaid item linked successfully.",
     itemId,
     connectedAccountId: connected._id,
+    institutionName: connected.institutionName,
+    institutionId: connected.institutionId,
   });
 });
 
 bankRouter.post("/sync", async (req, res) => {
   const clerkUserId = req.auth!.clerkUserId;
-  const linkedAccounts = await ConnectedBankAccount.find({
-    clerkUserId,
-    provider: "plaid",
-    status: "active",
-  });
-
-  let upserted = 0;
-
-  for (const linked of linkedAccounts) {
-    const txResponse = await plaidClient.transactionsGet({
-      access_token: linked.accessToken,
-      start_date: startOfDay(subDays(new Date(), 30)).toISOString().slice(0, 10),
-      end_date: endOfDay(new Date()).toISOString().slice(0, 10),
-      options: { count: 500 },
-    });
-
-    for (const txn of txResponse.data.transactions) {
-      await Expense.updateOne(
-        {
-          clerkUserId,
-          sourceType: "bank_sync",
-          sourceRef: txn.transaction_id,
-        },
-        {
-          $set: {
-            clerkUserId,
-            amount: Math.abs(txn.amount),
-            currency: "USD",
-            merchant: txn.merchant_name ?? txn.name ?? "Bank transaction",
-            category: txn.personal_finance_category?.primary ?? txn.category?.[0] ?? "Uncategorized",
-            occurredAt: new Date(txn.date),
-            sourceType: "bank_sync",
-            sourceRef: txn.transaction_id,
-            metadata: {
-              provider: "plaid",
-              accountId: txn.account_id,
-              paymentChannel: txn.payment_channel,
-              pending: txn.pending,
-            },
-          },
-        },
-        { upsert: true }
-      );
-      upserted += 1;
-    }
-
-    linked.lastSyncAt = new Date();
-    await linked.save();
-  }
-
-  return res.json({
-    message: "Sync complete.",
-    linkedAccounts: linkedAccounts.length,
-    upsertedTransactions: upserted,
+  const summary = await syncAllPlaidItemsForUser(clerkUserId);
+  const anyFailed = summary.results.some((r) => !r.ok);
+  return res.status(anyFailed ? 207 : 200).json({
+    message: anyFailed ? "Sync finished with one or more Plaid item errors." : "Sync complete.",
+    linkedAccounts: summary.linkedAccounts,
+    results: summary.results,
   });
 });
 
-bankRouter.get("/transactions", async (req, res) => {
+bankRouter.get("/connections", async (req, res) => {
   const clerkUserId = req.auth!.clerkUserId;
-  const { limit = "100", page = "1" } = req.query;
-  const parsedLimit = Math.min(500, Math.max(1, Number(limit)));
-  const parsedPage = Math.max(1, Number(page));
+  const rows = await ConnectedBankAccount.find({ clerkUserId })
+    .select("-accessToken")
+    .sort({ updatedAt: -1 })
+    .lean();
 
-  const filter = { clerkUserId };
-  const [items, total] = await Promise.all([
-    Expense.find(filter)
-      .sort({ occurredAt: -1 })
-      .skip((parsedPage - 1) * parsedLimit)
-      .limit(parsedLimit)
-      .lean(),
-    Expense.countDocuments(filter),
-  ]);
-
-  return res.json({
-    items,
-    page: parsedPage,
-    limit: parsedLimit,
-    total,
-    totalPages: Math.ceil(total / parsedLimit),
-  });
+  return res.json(rows);
 });
 
 bankRouter.get("/providers", (_req, res) => {
   return res.json({
     available: [
-      { provider: "plaid", status: "active", products: [Products.Transactions] },
+      { provider: "plaid", status: "active", products: plaidProductsForDocs() },
       { provider: "truelayer", status: "planned" },
     ],
   });
 });
 
 export { bankRouter };
-
