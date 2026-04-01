@@ -16,6 +16,7 @@ import { webhooksRouter } from "./routes/webhooks.js";
 
 export function createApp() {
   const app = express();
+  const isDev = env.NODE_ENV !== "production";
 
   app.set("trust proxy", 1);
   app.use(helmet());
@@ -33,10 +34,13 @@ export function createApp() {
 
   app.use(
     rateLimit({
-      windowMs: 15 * 60 * 1000,
-      limit: 300,
+      windowMs: isDev ? 60 * 1000 : 15 * 60 * 1000,
+      limit: isDev ? 2000 : 300,
       standardHeaders: true,
       legacyHeaders: false,
+      message: isDev
+        ? "Too many requests in development. Check for a request loop in the app."
+        : "Too many requests, please try again later.",
     })
   );
   app.use(morgan("combined"));
