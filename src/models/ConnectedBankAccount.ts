@@ -17,6 +17,8 @@ const connectedBankAccountSchema = new mongoose.Schema(
     },
     lastSyncAt: { type: Date, default: null },
     lastSyncError: { type: String, default: null },
+    /** Plaid link region: UK → GBP, US → USD in the app. */
+    countryCode: { type: String, enum: ["US", "GB"], required: false },
   },
   { timestamps: true }
 );

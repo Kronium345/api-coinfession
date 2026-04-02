@@ -29,6 +29,8 @@ export async function createLinkTokenForUser(params: {
 export async function exchangePublicToken(params: {
   clerkUserId: string;
   publicToken: string;
+  /** Preferred source: the same country used when creating the Link token. */
+  countryCode?: "US" | "GB";
   metadata?: {
     institution?: { institution_id?: string; name?: string };
     accounts?: { id: string }[];
@@ -45,6 +47,7 @@ export async function exchangePublicToken(params: {
   const institutionId = item.data.item.institution_id;
 
   let institutionName: string | null = params.metadata?.institution?.name ?? null;
+  let countryFromInstitution: "US" | "GB" | null = null;
   if (institutionId) {
     const institutions = await plaidClient.institutionsGetById({
       institution_id: institutionId,
@@ -52,7 +55,13 @@ export async function exchangePublicToken(params: {
       options: { include_optional_metadata: false },
     });
     institutionName = institutions.data.institution.name;
+    const codes = institutions.data.institution.country_codes ?? [];
+    if (codes.includes(CountryCode.Gb)) countryFromInstitution = "GB";
+    else if (codes.includes(CountryCode.Us)) countryFromInstitution = "US";
   }
+
+  const resolvedCountry: "US" | "GB" | undefined =
+    params.countryCode ?? countryFromInstitution ?? undefined;
 
   const connected = await ConnectedBankAccount.findOneAndUpdate(
     { clerkUserId: params.clerkUserId, provider: "plaid", itemId },
@@ -68,6 +77,7 @@ export async function exchangePublicToken(params: {
         status: "active",
         lastSyncError: null,
         transactionsCursor: null,
+        ...(resolvedCountry ? { countryCode: resolvedCountry } : {}),
       },
     },
     { upsert: true, new: true }

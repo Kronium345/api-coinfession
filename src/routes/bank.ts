@@ -20,6 +20,7 @@ const linkTokenSchema = z.object({
 
 const exchangeTokenSchema = z.object({
   publicToken: z.string().min(1),
+  countryCode: z.enum(["US", "GB"]).optional(),
   metadata: z
     .object({
       institution: z
@@ -67,6 +68,7 @@ bankRouter.post("/exchange-token", async (req, res) => {
   const { itemId, connected } = await exchangePublicToken({
     clerkUserId,
     publicToken: parsed.data.publicToken,
+    countryCode: parsed.data.countryCode,
     metadata: parsed.data.metadata,
   });
 
