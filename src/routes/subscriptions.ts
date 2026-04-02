@@ -5,18 +5,22 @@ import { Subscription } from "../models/Subscription.js";
 
 const subscriptionsRouter = Router();
 
+/** JSON clients often send `null`; Zod `.optional()` only allows `undefined`. */
+const optionalString = z.union([z.string(), z.null()]).optional();
+const optionalIsoDateTime = z.union([z.string().datetime(), z.null()]).optional();
+
 const createSubscriptionSchema = z.object({
   name: z.string().min(1),
-  plan: z.string().optional(),
-  category: z.string().optional(),
-  paymentMethod: z.string().optional(),
+  plan: optionalString,
+  category: optionalString,
+  paymentMethod: optionalString,
   status: z.string().default("active"),
-  startDate: z.string().datetime().optional(),
+  startDate: optionalIsoDateTime,
   price: z.number().positive(),
   currency: z.string().default("USD"),
   billing: z.string().min(1),
-  renewalDate: z.string().datetime().optional(),
-  color: z.string().optional(),
+  renewalDate: optionalIsoDateTime,
+  color: optionalString,
 });
 
 subscriptionsRouter.use(requireAuth);
