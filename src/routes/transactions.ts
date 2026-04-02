@@ -7,7 +7,8 @@ transactionsRouter.use(requireAuth);
 
 transactionsRouter.get("/", async (req, res) => {
   const clerkUserId = req.auth!.clerkUserId;
-  const { limit = "100", page = "1", sourceType, startDate, endDate, category } = req.query;
+  const { limit = "100", page = "1", sourceType, startDate, endDate, category, linkedItemId } =
+    req.query;
   const parsedLimit = Math.min(500, Math.max(1, Number(limit)));
   const parsedPage = Math.max(1, Number(page));
   const filter: Record<string, unknown> = { clerkUserId };
@@ -17,6 +18,13 @@ transactionsRouter.get("/", async (req, res) => {
   }
   if (typeof category === "string" && category.length > 0) {
     filter.category = category;
+  }
+  if (typeof linkedItemId === "string" && linkedItemId.length > 0) {
+    if (linkedItemId === "__legacy__") {
+      filter.$or = [{ linkedItemId: null }, { linkedItemId: "" }, { linkedItemId: { $exists: false } }];
+    } else {
+      filter.linkedItemId = linkedItemId;
+    }
   }
   if (typeof startDate === "string" || typeof endDate === "string") {
     filter.occurredAt = {};

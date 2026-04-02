@@ -18,6 +18,9 @@ const expenseSchema = new mongoose.Schema(
     pending: { type: Boolean, default: false },
     plaidCategoryLabels: [{ type: String }],
     metadata: { type: mongoose.Schema.Types.Mixed, default: null },
+    linkedItemId: { type: String, default: null, index: true },
+    plaidAccountId: { type: String, default: null },
+    institutionName: { type: String, default: null },
   },
   { timestamps: true }
 );

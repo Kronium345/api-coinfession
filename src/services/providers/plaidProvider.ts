@@ -77,7 +77,7 @@ export async function exchangePublicToken(params: {
 }
 
 function mapPlaidTransactionToExpense(
-  clerkUserId: string,
+  linked: InstanceType<typeof ConnectedBankAccount>,
   txn: Transaction
 ): Record<string, unknown> {
   const category =
@@ -85,7 +85,7 @@ function mapPlaidTransactionToExpense(
   const currency = (txn.iso_currency_code ?? txn.unofficial_currency_code ?? "USD").toUpperCase();
 
   return {
-    clerkUserId,
+    clerkUserId: linked.clerkUserId,
     amount: txn.amount,
     currency,
     merchant: txn.merchant_name ?? txn.name ?? "Bank transaction",
@@ -96,8 +96,12 @@ function mapPlaidTransactionToExpense(
     pending: txn.pending ?? false,
     plaidCategoryLabels: txn.category ?? [],
     notes: null,
+    linkedItemId: linked.itemId,
+    plaidAccountId: txn.account_id ?? null,
+    institutionName: linked.institutionName ?? null,
     metadata: {
       provider: "plaid",
+      itemId: linked.itemId,
       accountId: txn.account_id,
       paymentChannel: txn.payment_channel,
       pending: txn.pending,
@@ -158,7 +162,7 @@ export async function syncTransactionsForLinkedAccount(
             sourceType: "bank_sync",
             sourceRef: txn.transaction_id,
           },
-          { $set: mapPlaidTransactionToExpense(linked.clerkUserId, txn) },
+          { $set: mapPlaidTransactionToExpense(linked, txn) },
           { upsert: true }
         );
         added += 1;
@@ -171,7 +175,7 @@ export async function syncTransactionsForLinkedAccount(
             sourceType: "bank_sync",
             sourceRef: txn.transaction_id,
           },
-          { $set: mapPlaidTransactionToExpense(linked.clerkUserId, txn) },
+          { $set: mapPlaidTransactionToExpense(linked, txn) },
           { upsert: true }
         );
         modified += 1;
