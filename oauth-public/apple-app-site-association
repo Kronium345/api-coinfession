@@ -1,0 +1,11 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "657L73YR5B.com.kronium.coinfession",
+        "paths": ["/plaid", "/plaid/*"]
+      }
+    ]
+  }
+}

@@ -14,12 +14,15 @@ import { budgetsRouter } from "./routes/budgets.js";
 import { subscriptionsRouter } from "./routes/subscriptions.js";
 import { transactionsRouter } from "./routes/transactions.js";
 import { webhooksRouter } from "./routes/webhooks.js";
+import { plaidOAuthPublicRouter } from "./routes/plaidOAuthPublic.js";
 
 export function createApp() {
   const app = express();
   const isDev = env.NODE_ENV !== "production";
 
   app.set("trust proxy", 1);
+  /** Plaid iOS OAuth static assets; mount before rate limit so validators are not throttled */
+  app.use(plaidOAuthPublicRouter);
   app.use(helmet());
   app.use(
     cors({
